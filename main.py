@@ -1,7 +1,6 @@
 import numpy as np
 from PIL import Image, ImageTk
-from random import random
-from tkinter import Tk, Canvas, Button, PhotoImage, Label
+from tkinter import Tk, Button, Label
 from tkinter.filedialog import askopenfilename
 import os
 
@@ -11,22 +10,39 @@ class Network():
         self.weights = np.zeros((size, size))
 
     def learn(self, patterns):
-        for pattern in patterns:
-            self.weights += np.outer(pattern, pattern)
-
+        X = np.array(patterns)
+        X_pinv = np.linalg.pinv(X)
+        self.weights = X_pinv @ X
+        
         np.fill_diagonal(self.weights, 0)
 
-    def predict(self, input_pattern, max_iterations=1000000):
+    def predict(self, input_pattern, max_iterations=1000000, stability_threshold=1000):
         state = input_pattern.copy()
+        stable_iterations = 0
 
-        for _ in range(max_iterations):
+        for iteration in range(max_iterations):
+            previous_state = state.copy()
+
             i = np.random.randint(self.size)
             update = np.dot(self.weights[i], state)
             state[i] = 1 if update >= 0 else -1
+
+            print(f"Iteracja: {iteration} Energia: {self.calculate_energy(state)}")
+
+            if np.array_equal(state, previous_state):
+                stable_iterations += 1
+            else:
+                stable_iterations = 0
+
+            if stable_iterations >= stability_threshold:
+                print(f"Sieć jest stabilna")
+                break
             
         change_image(state)
         return state
-            
+    
+    def calculate_energy(self, state):
+        return -0.5 * np.sum(self.weights * np.outer(state, state))
 
 def binarize_image(file_name):
     image = Image.open(file_name)
